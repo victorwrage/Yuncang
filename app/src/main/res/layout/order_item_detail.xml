@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:minHeight="40dp">
+
+        <TextView
+            android:id="@+id/mer_name"
+            style="@style/text_order"
+            android:text="订单" />
+
+        <TextView
+            android:id="@+id/mer_price"
+            style="@style/text_order"
+            android:text="订单" />
+
+        <TextView
+            android:id="@+id/mer_unit"
+            style="@style/text_order"
+            android:text="订单" />
+
+        <TextView
+            android:id="@+id/mer_count"
+            style="@style/text_order"
+            android:text="订单" />
+
+        <TextView
+            android:id="@+id/mer_region"
+            style="@style/text_order"
+            android:text="订单" />
+
+    </LinearLayout>
+</LinearLayout>

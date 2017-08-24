@@ -264,6 +264,7 @@ public class MainActivity extends BaseActivity implements IOrderView, ILoginView
             if (updateStatus == UpdateStatus.Yes) {//版本有更新
 
             } else if (updateStatus == UpdateStatus.No) {
+                isInit = false;
                 KLog.v("版本无更新");
                 if (!Constant.MESSAGE_UPDATE_TIP.equals("")) {
                     VToast.toast(context, Constant.MESSAGE_UPDATE_TIP);

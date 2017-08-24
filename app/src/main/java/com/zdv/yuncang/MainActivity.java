@@ -514,7 +514,7 @@ public class MainActivity extends BaseActivity implements IOrderView, ILoginView
 
         request.setStarttime(search_start_tv.getText().toString());
         request.setStoptime(search_end_tv.getText().toString());
-        present.initRetrofit2(Constant.URL_WANDIAN, false);
+        present.initRetrofit(Constant.URL_WANDIAN, false);
 
         showWaitDialog("正在查询订单");
         present.QueryOder(request);
@@ -956,7 +956,6 @@ public class MainActivity extends BaseActivity implements IOrderView, ILoginView
     @Override
     public void ResolveReadDbSynergyMer(int type, DbResultBean result, List<ZDVOrderDetailItem> items_) {
         KLog.v(result.toString());
-        KLog.v("items_:" + items_.size()+items_.get(0).getBarcode());
         if (items_.size() == 0) return;
         Constant.cache_detail_items = new ArrayList<>();
         /**组装提交*/

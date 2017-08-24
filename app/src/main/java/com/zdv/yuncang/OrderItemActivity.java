@@ -172,6 +172,71 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
     }
 
 
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!isInit) {
+            isInit = true;
+        } else {
+            KLog.v("请稍后");
+            showWaitDialog("请稍后");
+            promptHandler.postDelayed(() -> hideWaitDialog(), 5000);
+        }
+        KLog.v("onResume" + d2000V1ScanInitUtils.getStart());
+        executor.execute(() -> startScan());
+    }
+    private Handler promptHandler = new Handler() {
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case RECORD_PROMPT_MSG:
+                    sendData((String) msg.obj);
+                    break;
+                case SCAN_CLOSED:
+
+                    break;
+                default:
+                    break;
+            }
+        }
+    };
+    private void sendData(String obj) {
+        KLog.v("sendData" + obj);
+        editItem(obj.trim());//
+
+    }
+
+    private void startScan() {
+        if (!d2000V1ScanInitUtils.getStart()) {
+            d2000V1ScanInitUtils.open();
+        }
+        d2000V1ScanInitUtils.d2000V1ScanOpen();
+    }
+
+    @Override
+    protected void onStop() {
+        KLog.v("onStop");
+        super.onStop();
+        if (d2000V1ScanInitUtils.getStart()) {
+            d2000V1ScanInitUtils.setStart(false);
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        d2000V1ScanInitUtils = D2000V1ScanInitUtils.getInstance(OrderItemActivity.this, promptHandler);
+    }
+
+
+    @Override
+    protected void onDestroy() {
+        d2000V1ScanInitUtils.close2();
+        super.onDestroy();
+    }
+
     /**
      * 给新利源Item赋值
      */
@@ -420,6 +485,9 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
             }
         }
         if (!isExist) {
+            showWaitDialog("请稍候");
+            rl_xly_jh_back.postDelayed( ()->{ hideWaitDialog();
+                startScan();},1000);
             VToast.toast(context, "没有找到相应物品");
             return;
         }

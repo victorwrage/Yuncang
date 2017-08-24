@@ -9,8 +9,8 @@ android {
         applicationId "com.zdv.yuncang"
         minSdkVersion 18
         targetSdkVersion 24
-        versionCode 4
-        versionName "1.04"
+        versionCode 5
+        versionName "1.05"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     signingConfigs {
@@ -122,5 +122,4 @@ dependencies {
     compile 'com.squareup.okhttp:okhttp:2.4.0'
     //CDN文件服务使用okhttp相关包进行文件的上传和下载（必填）
     compile 'com.squareup.okio:okio:1.4.0'
-    compile files('libs/androidsecuritymoduleapi.jar')
 }

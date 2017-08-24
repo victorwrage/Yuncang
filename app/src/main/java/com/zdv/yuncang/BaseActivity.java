@@ -13,14 +13,22 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 
 import com.zdv.yuncang.present.QueryPresent;
+import com.zdv.yuncang.utils.D2000V1ScanInitUtils;
 import com.zdv.yuncang.utils.Utils;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.Executor;
 
 public class BaseActivity extends Activity {
+    protected static final int RECORD_PROMPT_MSG = 0x06;
+    protected static final int SCAN_CLOSED = 1020;
+    protected D2000V1ScanInitUtils d2000V1ScanInitUtils;
+    protected Boolean isInit = false;
+    protected Executor executor;
+
     protected Context context;
     ProgressDialog progressDialog;
     DeviceManager deviceManager;
@@ -55,7 +63,7 @@ public class BaseActivity extends Activity {
     }
 
     protected void hideWaitDialog() {
-       if(progressDialog!=null) progressDialog.dismiss();
+        if(progressDialog!=null) progressDialog.dismiss();
     }
 
 

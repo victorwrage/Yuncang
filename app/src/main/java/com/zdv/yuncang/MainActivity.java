@@ -37,6 +37,7 @@ import com.zdv.yuncang.present.DbPresent;
 import com.zdv.yuncang.present.QueryPresent;
 import com.zdv.yuncang.service.RestartService;
 import com.zdv.yuncang.utils.Constant;
+import com.zdv.yuncang.utils.D2000V1ScanInitUtils;
 import com.zdv.yuncang.utils.SortOrderComparator;
 import com.zdv.yuncang.utils.SortOrderStateComparator;
 import com.zdv.yuncang.utils.Utils;
@@ -53,6 +54,7 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import butterknife.Bind;
@@ -65,6 +67,7 @@ import cn.bmob.v3.update.UpdateStatus;
  * 首先请求登录万店通，然后获取订单信息
  */
 public class MainActivity extends BaseActivity implements IOrderView, ILoginView, IDbView {
+
     private static final String SUCCESS = "success";
     private static final String COOKIE_KEY = "cookie";
     private static final int ORDER_FETCH_SUCCESS = 10;//  订单获取成功
@@ -142,6 +145,8 @@ public class MainActivity extends BaseActivity implements IOrderView, ILoginView
     ArrayList<SynergyOrderItemInfo> items;
 
     ArrayList<SynergyOrderItemInfo> confirmed_items;
+
+
 
     SynergyOrderItemInfo cur_item;
     boolean needUpdate = false;
@@ -228,7 +233,7 @@ public class MainActivity extends BaseActivity implements IOrderView, ILoginView
                     Constant.cache_detail_items.remove(delete_list_detail_item);
                     confirmed_items.remove(delete_list_item);
 
-                   //  items.remove(delete_list_item);
+                    //  items.remove(delete_list_item);
 
 
                     /** 继续提交*/
@@ -262,6 +267,8 @@ public class MainActivity extends BaseActivity implements IOrderView, ILoginView
                 KLog.v("版本无更新");
                 if (!Constant.MESSAGE_UPDATE_TIP.equals("")) {
                     VToast.toast(context, Constant.MESSAGE_UPDATE_TIP);
+                }else{
+                    Constant.MESSAGE_UPDATE_TIP = "<<捌号云仓>>是最新版本";
                 }
             } else if (updateStatus == UpdateStatus.EmptyField) {//此提示只是提醒开发者关注那些必填项，测试成功后，无需对用户提示
                 KLog.v("请检查你AppVersion表的必填项，1、target_size（文件大小）是否填写；2、path或者android_url两者必填其中一项。");
@@ -294,6 +301,94 @@ public class MainActivity extends BaseActivity implements IOrderView, ILoginView
         present.QueryOder(request);
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!isInit) {
+            isInit = true;
+        } else {
+            KLog.v("请稍后");
+            showWaitDialog("请稍后");
+            promptHandler.postDelayed(() -> hideWaitDialog(), 5000);
+        }
+        KLog.v("onResume" + d2000V1ScanInitUtils.getStart());
+        executor.execute(() -> startScan());
+    }
+    private Handler promptHandler = new Handler() {
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case RECORD_PROMPT_MSG:
+                    sendData((String) msg.obj);
+                    break;
+                case SCAN_CLOSED:
+
+                    break;
+                default:
+                    break;
+            }
+        }
+    };
+    private void sendData(String obj) {
+        KLog.v("sendData" + obj);
+        cur_item = null;
+        Iterator<SynergyOrderItemInfo> v_s = items.iterator();
+        while (v_s.hasNext()) {
+            SynergyOrderItemInfo a_t = v_s.next();
+            if (a_t.getCode().equals(obj.trim())) {
+                cur_item = a_t;
+            }
+        }
+        if (cur_item != null) {
+            KLog.v("sendData"+ cur_item.getSolve());
+            if (Integer.parseInt(cur_item.getSolve()) != ORDER_STATUS_VERIFY_POST) {
+                gotoOrderItem();
+            } else {
+                showWaitDialog("请稍候");
+                rl_xly_back.postDelayed( ()->{ hideWaitDialog();
+                    scan();},1000);
+                VToast.toast(context, "订单已经拣货");
+            }
+        } else {
+            showWaitDialog("请稍候");
+            rl_xly_back.postDelayed( ()->{ hideWaitDialog();
+                scan();},1000);
+            VToast.toast(context, "没有找到对应的单号");
+        }
+    }
+
+    public void scan() {
+        startScan();
+    }
+
+    private void startScan() {
+        if (!d2000V1ScanInitUtils.getStart()) {
+            d2000V1ScanInitUtils.open();
+        }
+        d2000V1ScanInitUtils.d2000V1ScanOpen();
+    }
+
+    @Override
+    protected void onStop() {
+        KLog.v("onStop");
+        super.onStop();
+        if (d2000V1ScanInitUtils.getStart()) {
+            d2000V1ScanInitUtils.setStart(false);
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        d2000V1ScanInitUtils = D2000V1ScanInitUtils.getInstance(MainActivity.this, promptHandler);
+    }
+
+    @Override
+    protected void onDestroy() {
+        d2000V1ScanInitUtils.close();
+        super.onDestroy();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -316,7 +411,7 @@ public class MainActivity extends BaseActivity implements IOrderView, ILoginView
         Constant.activity = 0;
         //  startService(new Intent(MainActivity.this,Service1.class));//进程常驻，
         //  startService(new Intent(MainActivity.this, RestartService.class));
-
+        executor = Executors.newSingleThreadScheduledExecutor();
         sp = getSharedPreferences(COOKIE_KEY, 0);
         present = QueryPresent.getInstance(context);
         present.initRetrofit(Constant.URL_WANDIAN, false);
@@ -630,6 +725,7 @@ public class MainActivity extends BaseActivity implements IOrderView, ILoginView
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode == RESULT_OK) {
+
             Bundle bundle = data.getExtras();
             KLog.v(bundle.getString("result"));
 
@@ -656,6 +752,9 @@ public class MainActivity extends BaseActivity implements IOrderView, ILoginView
             }
         } else if (resultCode == RESULT_CANCELED) {
         } else if (resultCode == ORDER_HAS_CONFIRM) {//已经修改成功
+          /*  showWaitDialog("请稍候");
+            rl_xly_back.postDelayed( ()->{ hideWaitDialog();
+                startScan();},2000);*/
             //SynergyOrderItemInfo backItem = data.getParcelableExtra("commit_item");
             ArrayList<ZDVItemDetail> backMerItems = data.getParcelableArrayListExtra("commit_mer_items");
             cur_item.setSolve("" + ORDER_STATUS_VERIFY);
@@ -710,11 +809,13 @@ public class MainActivity extends BaseActivity implements IOrderView, ILoginView
             Constant.cache_detail_items.add(a_items);
 
         }
-
-
     }
 
     private void gotoOrderItem() {
+
+        d2000V1ScanInitUtils.close();
+        d2000V1ScanInitUtils.close3();
+        isInit = false;
         Intent intent = new Intent(MainActivity.this, OrderItemActivity.class);
         intent.putExtra("cur_item", cur_item);
         intent.putExtra("secret", cur_user.getSecret());
@@ -782,7 +883,6 @@ public class MainActivity extends BaseActivity implements IOrderView, ILoginView
         }
         KLog.v(info.toString());
         info.setSecret(util.UrlEnco(info.getSecret()));
-        Constant.MESSAGE_UPDATE_TIP = "当前已经是最新版本";
 
         cur_user = info;
         handler.sendEmptyMessage(LOGIN_SUCCESS);
@@ -833,7 +933,7 @@ public class MainActivity extends BaseActivity implements IOrderView, ILoginView
     public void ResolveReadDbSynergyOrder(int type, DbResultBean result, List<ZDVOrderItem> items_) {
 
         if (items_.size() == 0){
-          //  handler.sendEmptyMessage(ORDER_DB_FETCH_FAIL);
+            //  handler.sendEmptyMessage(ORDER_DB_FETCH_FAIL);
         }
         confirmed_items = new ArrayList<>();
         Iterator<SynergyOrderItemInfo> v_s = items.iterator();
@@ -856,7 +956,7 @@ public class MainActivity extends BaseActivity implements IOrderView, ILoginView
     @Override
     public void ResolveReadDbSynergyMer(int type, DbResultBean result, List<ZDVOrderDetailItem> items_) {
         KLog.v(result.toString());
-        KLog.v("items_:" + items_.size());
+        KLog.v("items_:" + items_.size()+items_.get(0).getBarcode());
         if (items_.size() == 0) return;
         Constant.cache_detail_items = new ArrayList<>();
         /**组装提交*/

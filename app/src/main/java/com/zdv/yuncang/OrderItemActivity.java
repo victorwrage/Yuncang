@@ -6,6 +6,7 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.view.KeyEvent;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
@@ -19,6 +20,7 @@ import com.zdv.yuncang.bean.SynergyOrderItemInfo;
 import com.zdv.yuncang.bean.ZDVItemDetail;
 import com.zdv.yuncang.present.QueryPresent;
 import com.zdv.yuncang.utils.Constant;
+import com.zdv.yuncang.utils.D2000V1ScanInitUtils;
 import com.zdv.yuncang.utils.SortComparator;
 import com.zdv.yuncang.utils.Utils;
 import com.zdv.yuncang.utils.VToast;
@@ -28,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import butterknife.Bind;
@@ -98,6 +101,76 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
             }
         }
     };
+    private boolean isScan = false;
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            Back();
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!isInit) {
+            isInit = true;
+        } else {
+            KLog.v("请稍后");
+            showWaitDialog("请稍后");
+            promptHandler.postDelayed(() -> hideWaitDialog(), 5000);
+        }
+        KLog.v("onResume" + d2000V1ScanInitUtils.getStart());
+        executor.execute(() -> startScan());
+    }
+
+    private Handler promptHandler = new Handler() {
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case RECORD_PROMPT_MSG:
+                    sendData((String) msg.obj);
+                    break;
+                case SCAN_CLOSED:
+
+                    break;
+                default:
+                    break;
+            }
+        }
+    };
+
+    private void sendData(String obj) {
+        KLog.v("sendData" + obj);
+        isScan = true;
+        editItem(obj.trim());//
+
+    }
+
+    private void startScan() {
+        if (!d2000V1ScanInitUtils.getStart()) {
+            d2000V1ScanInitUtils.open();
+        }
+        d2000V1ScanInitUtils.d2000V1ScanOpen();
+    }
+
+    @Override
+    protected void onStop() {
+        KLog.v("onStop");
+        super.onStop();
+        if (d2000V1ScanInitUtils.getStart()) {
+            d2000V1ScanInitUtils.setStart(false);
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        d2000V1ScanInitUtils = D2000V1ScanInitUtils.getInstance(OrderItemActivity.this, promptHandler);
+    }
+
 
     /**
      * 给新利源Item赋值
@@ -145,6 +218,7 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
     }
 
     private void initDate(Intent intent) {
+        executor = Executors.newSingleThreadScheduledExecutor();
         Constant.activity = 2;
         cur_order_item = intent.getParcelableExtra("cur_item");
         KLog.v(cur_order_item.getSolve());
@@ -164,8 +238,8 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
     private void fetchZDVdata() {
 
         for (ArrayList<ZDVItemDetail> i_z_l : Constant.detail_items) {
-            if(i_z_l.size()==0)continue;
-           // KLog.v("fetchZDVdata"+i_z_l.get(0).getOcode()+"---"+cur_order_item.getCode());
+            if (i_z_l.size() == 0) continue;
+            // KLog.v("fetchZDVdata"+i_z_l.get(0).getOcode()+"---"+cur_order_item.getCode());
             if (i_z_l.get(0).getOcode().equals(cur_order_item.getCode())) {
                 for (ZDVItemDetail z_i_i : i_z_l) {
                     items.add(z_i_i);
@@ -175,7 +249,7 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
         }
         ArrayList<ZDVOrderDetailItem> t_l = new ArrayList<>();
         for (ArrayList<ZDVOrderDetailItem> i_l : Constant.cache_detail_items) {
-            if(i_l.size()==0)continue;
+            if (i_l.size() == 0) continue;
             if (i_l.get(0).getOcode().equals(cur_order_item.getCode())) {
                 t_l = i_l;
                 break;
@@ -191,7 +265,7 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
                 }
             }
         }
-       // Sort();
+        // Sort();
         adapter.notifyDataSetChanged();
         updateCount();
     }
@@ -203,7 +277,7 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
     }
 
     private void initView() {
-        RxView.clicks(rl_xly_jh_back).throttleFirst(500, TimeUnit.MILLISECONDS).subscribe(s -> finish());
+        RxView.clicks(rl_xly_jh_back).throttleFirst(500, TimeUnit.MILLISECONDS).subscribe(s -> Back());
         RxView.clicks(tv_xly_jh_comdit).throttleFirst(500, TimeUnit.MILLISECONDS).subscribe(s -> confirmOrder());
         RxView.clicks(iv_scan).throttleFirst(500, TimeUnit.MILLISECONDS).subscribe(s -> Scan());
 
@@ -237,6 +311,13 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
         fetchZDVdata();
     }
 
+    private void Back() {
+        d2000V1ScanInitUtils.close();
+        d2000V1ScanInitUtils.close3();
+        showWaitDialog("请稍等");
+        handler.postDelayed(() ->finish() , 2000);
+    }
+
     private void confirmOrder() {
         showDialog(ALL_COMMIT, "提示", "是否提交?", "确认", "取消");
     }
@@ -245,11 +326,17 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
      * 提交修改
      */
     private void Commit() {
-        Intent backIntent = new Intent();
-        backIntent.putExtra("commit_item", cur_order_item);
-        backIntent.putParcelableArrayListExtra("commit_mer_items", items);
-        setResult(ORDER_HAS_CONFIRM, backIntent);
-        finish();
+        d2000V1ScanInitUtils.close();
+        d2000V1ScanInitUtils.close3();
+        showWaitDialog("请稍等");
+        handler.postDelayed(() -> {
+            Intent backIntent = new Intent();
+            backIntent.putExtra("commit_item", cur_order_item);
+            backIntent.putParcelableArrayListExtra("commit_mer_items", items);
+            setResult(ORDER_HAS_CONFIRM, backIntent);
+            finish();
+        }, 2000);
+
     }
 
     private void Scan() {
@@ -317,6 +404,7 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
      * @param sku
      */
     private void editItem(String sku) {
+        scanOrNot();
         if (items.size() < 1) {
             return;
         }
@@ -333,9 +421,11 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
         }
         if (!isExist) {
             VToast.toast(context, "没有找到相应物品");
+            return;
         }
         updateCount();
         adapter.notifyDataSetChanged();
+        VToast.toast(context, "拣货成功");
     }
 
     /**
@@ -347,7 +437,15 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
     @Override
     protected void edit(EditText inputServer, int type, DialogInterface dialog) {
         super.edit(inputServer, type, dialog);
+
+
         if (inputServer.getText().toString().trim().equals("")) {
+
+            return;
+        }
+        if (Integer.parseInt(inputServer.getText().toString()) == 0) {
+
+            VToast.toast(context, "数量不能为0");
             return;
         }
         if (Integer.parseInt(inputServer.getText().toString()) > Integer.parseInt(cur_item.getNumber())) {
@@ -356,6 +454,7 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
         }
 
         if (inputServer.getText().toString().equals("")) {
+
             VToast.toast(context, "没有修改");
             return;
         }
@@ -364,6 +463,29 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
         allCommit = false;
         updateCount();
         adapter.notifyDataSetChanged();
+    }
+
+    private void scanOrNot() {
+        showWaitDialog("请稍等");
+        if (isScan) {
+            rl_xly_jh_back.postDelayed(() -> {
+                hideWaitDialog();
+                startScan();
+            }, 1000);
+            isScan = false;
+        }
+    }
+
+    @Override
+    protected void cancel(int type, DialogInterface dialog) {
+        super.cancel(type, dialog);
+        if (isScan) {
+            rl_xly_jh_back.postDelayed(() -> {
+                hideWaitDialog();
+                startScan();
+            }, 1000);
+            isScan = false;
+        }
     }
 
     @Override

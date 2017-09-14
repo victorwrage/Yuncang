@@ -111,9 +111,6 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
         return super.onKeyDown(keyCode, event);
     }
 
-
-
-
     @Override
     protected void onResume() {
         super.onResume();
@@ -145,6 +142,7 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
     };
     private void sendData(String obj) {
         KLog.v("sendData" + obj);
+        isScan = true;
         editItem(obj.trim());//
 
     }
@@ -170,7 +168,6 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
         super.onStart();
         d2000V1ScanInitUtils = D2000V1ScanInitUtils.getInstance(OrderItemActivity.this, promptHandler);
     }
-
 
     @Override
     protected void onDestroy() {
@@ -426,9 +423,6 @@ public class OrderItemActivity extends BaseActivity implements IOrderItemView {
             }
         }
         if (!isExist) {
-            showWaitDialog("请稍候");
-            rl_xly_jh_back.postDelayed( ()->{ hideWaitDialog();
-                startScan();},1000);
             VToast.toast(context, "没有找到相应物品");
             return;
         }
